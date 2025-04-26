@@ -62,23 +62,24 @@
    - 对测试数据P101-P120进行预处理，同第一阶段。
 4. 特征缩放与编码 (`FitScaler/`):
    - 对训练数据进行特征缩放和编码，保存处理对象（`.pkl` 文件）。
-5. - 模型训练准备 (`Train_CNN_LSTM/CNN_LSTM_Jerk_Plot.py` 执行):
-     - **数据划分**: 加载 `ProcessedData/ProcessedTrainData/` 中的所有 `P###.csv` 文件，并根据配置 (`VAL_FILES_COUNT`, `TEST_SET_SIZE`) 将文件列表随机划分为训练集、验证集和测试集。
-     - **标签映射**: 将 'annotation' (MET 值) 映射为离散的类别标签 (0-4)。
-     - 特征缩放与编码:
-       - **加载训练数据**: 合并所有训练集文件到一个 DataFrame。
-       - **拟合 Scaler**: 在合并后的训练数据上，对传感器特征 (`x`, `y`, `z`, `magnitude`, `Jerk_x`, `Jerk_y`, `Jerk_z`) 拟合 `StandardScaler`。
-       - **拟合 Encoders**: 基于训练集参与者的元数据，拟合 `OneHotEncoder` 用于编码'sex' 和 'age_group' 特征。
-       - *(注：此处拟合过程在训练脚本内部完成（但是没有保存为文件）。`FitScaler/` 目录下的脚本进行相关文件的保存*。
-     - 数据集创建:
-       - 使用自定义的 `IterableSensorDataset` 类处理数据。
-       - 该类对数据应用滑动窗口（大小 `WINDOW_SIZE`，步长 `STEP`）生成序列。
-       - 在生成每个序列时：
-         - 应用已拟合的 `StandardScaler` 缩放传感器特征。
-         - 获取对应参与者的'sex' 和 'age_group'，应用已拟合的 `OneHotEncoder` 进行编码。
-         - 拼接缩放后的传感器特征和编码后的人口统计学特征，形成最终输入模型的序列。
-         - 返回序列及其对应的类别标签（窗口末端的标签）。
-     - **DataLoader 创建**: 为训练、验证和测试数据集创建 `DataLoader` 实例，用于按批次 (`BATCH_SIZE`) 加载数据。
+5. 模型训练准备 (`Train_CNN_LSTM/CNN_LSTM_Jerk_Plot.py` 执行):
+   - **数据划分**: 加载 `ProcessedData/ProcessedTrainData/` 中的所有 `P###.csv` 文件，并根据配置 (`VAL_FILES_COUNT`, `TEST_SET_SIZE`) 将文件列表随机划分为训练集、验证集和测试集。
+   - **标签映射**: 将 'annotation' (MET 值) 映射为离散的类别标签 (0-4)。
+   - 特征缩放与编码:
+     - **加载训练数据**: 合并所有训练集文件到一个 DataFrame。
+     - **拟合 Scaler**: 在合并后的训练数据上，对传感器特征 (`x`, `y`, `z`, `magnitude`, `Jerk_x`, `Jerk_y`, `Jerk_z`) 拟合 `StandardScaler`。
+     - **拟合 Encoders**: 基于训练集参与者的元数据，拟合 `OneHotEncoder` 用于编码'sex' 和 'age_group' 特征。
+     - *(注：此处拟合过程在训练脚本内部完成（但是没有保存为文件）。`FitScaler/` 目录下的脚本进行相关文件的保存*。
+   - 数据集创建:
+     - 使用自定义的 `IterableSensorDataset` 类处理数据。
+     - 该类对数据应用滑动窗口（大小 `WINDOW_SIZE`，步长 `STEP`）生成序列。
+     - 在生成每个序列时：
+       - 应用已拟合的 `StandardScaler` 缩放传感器特征。
+       - 获取对应参与者的'sex' 和 'age_group'，应用已拟合的 `OneHotEncoder` 进行编码。
+       - 拼接缩放后的传感器特征和编码后的人口统计学特征，形成最终输入模型的序列。
+       - 返回序列及其对应的类别标签（窗口末端的标签）。
+   - **DataLoader 创建**: 为训练、验证和测试数据集创建 `DataLoader` 实例，用于按批次 (`BATCH_SIZE`) 加载数据。
+   
    - 模型训练 (`Train_CNN_LSTM/CNN_LSTM_Jerk_Plot.py` 执行):
      - **模型构建**: 定义 `CNN_LSTM_Attention_Model` 模型，包含 CNN 层、双向 LSTM 层、Attention 机制和全连接分类层。输入特征维度为传感器特征数 + 人口统计学特征数。
      - **损失函数**: 使用 `CrossEntropyLoss`，可选择根据训练集类别分布计算类别权重以处理不平衡问题。
@@ -92,25 +93,25 @@
      - 结果保存:
        - 将训练过程（损失、准确率、学习率）绘制成图表，保存到 `TrainedLog/training_history_...png`。
        - 保存验证集上表现最优的模型的状态字典到 `TrainedModelPara/final_model_...pth`。
-6. - 模型推理与预测生成 (`Prediction/Evaluate_CNN_LSTM.py` 执行):
-     - 加载:
-       - 加载 `TrainedModelPara/` 中保存的最终模型权重 (`.pth`)。
-       - 加载 `FitScaler/` 中保存的 `StandardScaler` 和 `OneHotEncoder` (`.pkl`)。
-       - 加载 `Metadata/metadata_test.py` 中定义的测试参与者 (P101 - P120) 的元数据。
-       - 加载 P101 - P120 的数据(`.csv` )。
-     - 处理与推理:
-       - 逐个处理测试参与者文件 (P101 - P120)。
-       - 对大数据文件使用**分块 (chunking)** 读取。
-       - 对每个数据块：
-         - 应用加载的 `StandardScaler` 缩放传感器特征。
-         - 使用加载的 `OneHotEncoder` 编码该参与者的元数据。
-         - 拼接特征，确保维度与模型输入一致。
-         - 应用滑动窗口生成序列。
-         - 将序列批量送入加载的模型 (`model.eval()` 模式) 进行推理，获取预测类别。
-       - 使用缓冲区处理跨数据块的窗口重叠问题。
-     - 输出:
-       - 将每个时间点（窗口末端）的预测结果 (`annotation_class`) 与原始时间戳、坐标 (`time`, `x`, `y`, `z`) 结合。
-       - 为每个测试参与者生成一个 CSV 文件 (如 `P101.csv`)，包含预测结果，保存到 `PredictionOutput/` 目录。
+6. 模型推理与预测生成 (`Prediction/Evaluate_CNN_LSTM.py` 执行):
+   - 加载:
+     - 加载 `TrainedModelPara/` 中保存的最终模型权重 (`.pth`)。
+     - 加载 `FitScaler/` 中保存的 `StandardScaler` 和 `OneHotEncoder` (`.pkl`)。
+     - 加载 `Metadata/metadata_test.py` 中定义的测试参与者 (P101 - P120) 的元数据。
+     - 加载 P101 - P120 的数据(`.csv` )。
+   - 处理与推理:
+     - 逐个处理测试参与者文件 (P101 - P120)。
+     - 对大数据文件使用**分块 (chunking)** 读取。
+     - 对每个数据块：
+       - 应用加载的 `StandardScaler` 缩放传感器特征。
+       - 使用加载的 `OneHotEncoder` 编码该参与者的元数据。
+       - 拼接特征，确保维度与模型输入一致。
+       - 应用滑动窗口生成序列。
+       - 将序列批量送入加载的模型 (`model.eval()` 模式) 进行推理，获取预测类别。
+     - 使用缓冲区处理跨数据块的窗口重叠问题。
+   - 输出:
+     - 将每个时间点（窗口末端）的预测结果 (`annotation_class`) 与原始时间戳、坐标 (`time`, `x`, `y`, `z`) 结合。
+     - 为每个测试参与者生成一个 CSV 文件 (如 `P101.csv`)，包含预测结果，保存到 `PredictionOutput/` 目录。
 
 4. 训练结果(loss/acc/lr)
 
